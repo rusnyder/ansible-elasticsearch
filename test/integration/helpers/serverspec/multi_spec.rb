@@ -1,6 +1,14 @@
 require 'spec_helper'
 
-shared_examples 'multi::init' do  |es_version,plugins|
+def escurl(url, auth)
+  cmd = "curl -s"
+  if auth
+    cmd = "#{cmd} -u #{auth[:user]}:#{auth[:password]}"
+  end
+  "#{cmd} #{url}"
+end
+
+shared_examples 'multi::init' do  |es_version,plugins,auth|
 
   describe user('elasticsearch') do
     it { should exist }
@@ -62,7 +70,7 @@ shared_examples 'multi::init' do  |es_version,plugins|
   #test we started on the correct port was used for master
   describe 'master started' do
     it 'master node should be running', :retry => 3, :retry_wait => 10 do
-      command = command('curl "localhost:9200" | grep name')
+      command = command(escurl('localhost:9200 | grep name', auth))
       #expect(command.stdout).should match '/*master_localhost*/'
       expect(command.exit_status).to eq(0)
     end
@@ -71,7 +79,7 @@ shared_examples 'multi::init' do  |es_version,plugins|
   #test we started on the correct port was used for node 1
   describe 'node1 started' do
     it 'node should be running', :retry => 3, :retry_wait => 10 do
-      command = command('curl "localhost:9201" | grep name')
+      command = command(escurl('localhost:9201 | grep name', auth))
       #expect(command.stdout).should match '/*node1_localhost*/'
       expect(command.exit_status).to eq(0)
     end
@@ -89,7 +97,7 @@ shared_examples 'multi::init' do  |es_version,plugins|
 
   describe 'Template Installed' do
     it 'should be reported as being installed', :retry => 3, :retry_wait => 10 do
-      command = command('curl localhost:9200/_template/basic')
+      command = command(escurl('localhost:9200/_template/basic', auth))
       expect(command.stdout).to match(/basic/)
       expect(command.exit_status).to eq(0)
     end
@@ -97,7 +105,7 @@ shared_examples 'multi::init' do  |es_version,plugins|
 
   describe 'Template Installed' do
     it 'should be reported as being installed', :retry => 3, :retry_wait => 10 do
-      command = command('curl localhost:9201/_template/basic')
+      command = command(escurl('localhost:9201/_template/basic', auth))
       expect(command.stdout).to match(/basic/)
       expect(command.exit_status).to eq(0)
     end
@@ -142,20 +150,20 @@ shared_examples 'multi::init' do  |es_version,plugins|
   end
 
   #test to make sure mlock was applied
-  describe command('curl -s "localhost:9200/_nodes/localhost-master/process?pretty=true" | grep mlockall') do
+  describe command(escurl('localhost:9200/_nodes/localhost-master/process?pretty=true | grep mlockall', auth)) do
     its(:stdout) { should match /true/ }
     its(:exit_status) { should eq 0 }
   end
 
   #test to make sure mlock was not applied
-  describe command('curl -s "localhost:9201/_nodes/localhost-node1/process?pretty=true" | grep mlockall') do
+  describe command(escurl('localhost:9201/_nodes/localhost-node1/process?pretty=true | grep mlockall', auth)) do
     its(:stdout) { should match /false/ }
     its(:exit_status) { should eq 0 }
   end
 
   describe 'version check on master' do
     it 'should be reported as version '+es_version do
-      command = command('curl -s localhost:9200 | grep number')
+      command = command(escurl('localhost:9200 | grep number', auth))
       expect(command.stdout).to match(es_version)
       expect(command.exit_status).to eq(0)
     end
@@ -163,7 +171,7 @@ shared_examples 'multi::init' do  |es_version,plugins|
 
   describe 'version check on data' do
     it 'should be reported as version '+es_version do
-      command = command('curl -s localhost:9201 | grep number')
+      command = command(escurl('localhost:9201 | grep number', auth))
       expect(command.stdout).to match(es_version)
       expect(command.exit_status).to eq(0)
     end
@@ -171,11 +179,11 @@ shared_examples 'multi::init' do  |es_version,plugins|
 
   for plugin in plugins
 
-    describe command('curl -s localhost:9200/_nodes/plugins?pretty=true | grep '+plugin) do
+    describe command(escurl('localhost:9200/_nodes/plugins?pretty=true | grep '+plugin, auth)) do
       its(:exit_status) { should eq 0 }
     end
 
-    describe command('curl -s localhost:9201/_nodes/plugins?pretty=true | grep '+plugin) do
+    describe command(escurl('localhost:9201/_nodes/plugins?pretty=true | grep '+plugin, auth)) do
       its(:exit_status) { should eq 0 }
     end
 
